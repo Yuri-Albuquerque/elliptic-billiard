@@ -1,12 +1,12 @@
 class EllipticBilliard {
     constructor(canvas) {
         // Add touch event properties
-        // private touchIdentifier: number | null = null;
+        this.touchIdentifier = null;
         this.touchPositions = [];
         this.canvas = canvas;
-        // Set CSS dimensions first
-        canvas.style.width = '100%';
-        canvas.style.height = '100vh';
+        // // Set CSS dimensions first
+        // canvas.style.width = '100%';
+        // canvas.style.height = '100vh';
         canvas.style.margin = '0 auto'; // Center horizontally
         canvas.style.display = 'block'; // Remove default inline spacing
         // Get device pixel ratio
@@ -116,52 +116,40 @@ class EllipticBilliard {
     // Touch handlers
     handleTouchStart(e) {
         if (!this.isMoving && e.touches.length === 1) {
-            const rect = this.canvas.getBoundingClientRect();
-            const scaleX = this.canvas.width / rect.width;
-            const scaleY = this.canvas.height / rect.height;
-            const touch = e.touches[0];
-            this.touchPositions = [{
-                    x: (touch.clientX - rect.left) * scaleX,
-                    y: (touch.clientY - rect.top) * scaleY,
-                    timestamp: performance.now()
-                }];
-            this.isAiming = true;
             e.preventDefault();
+            this.touchIdentifier = e.touches[0].identifier;
+            const rect = this.canvas.getBoundingClientRect();
+            this.aimStart.x = e.touches[0].clientX - rect.left;
+            this.aimStart.y = e.touches[0].clientY - rect.top;
+            this.isAiming = true;
         }
     }
     handleTouchMove(e) {
-        if (this.isAiming) {
-            const ppiScale = 440 / 160; // 160 = baseline PPI
-            const touch = e.touches[0];
-            const rect = this.canvas.getBoundingClientRect();
-            const scaleX = (this.canvas.width / rect.width) * ppiScale;
-            const scaleY = (this.canvas.height / rect.height) * ppiScale;
-            this.touchPositions.push({
-                x: (touch.clientX - rect.left) * scaleX,
-                y: (touch.clientY - rect.top) * scaleY,
-                timestamp: performance.now()
-            });
-            // Keep only last 5 positions for velocity calculation
-            if (this.touchPositions.length > 5)
-                this.touchPositions.shift();
-            this.updateAimDisplay(touch.clientX, touch.clientY);
+        if (this.isAiming && this.touchIdentifier !== null) {
             e.preventDefault();
+            const touch = Array.from(e.touches).find(t => t.identifier === this.touchIdentifier);
+            if (touch) {
+                const rect = this.canvas.getBoundingClientRect();
+                const currentX = touch.clientX - rect.left;
+                const currentY = touch.clientY - rect.top;
+                this.updateAimDisplay(currentX, currentY);
+            }
         }
     }
     handleTouchEnd(e) {
         if (this.isAiming) {
-            // Calculate swipe velocity
-            const lastTwo = this.touchPositions.slice(-2);
-            const dx = lastTwo[1].x - lastTwo[0].x;
-            const dy = lastTwo[1].y - lastTwo[0].y;
-            const dt = lastTwo[1].timestamp - lastTwo[0].timestamp;
-            this.velocity.x = (dx / dt) * 1000 * 0.5; // Adjust multiplier
-            this.velocity.y = (dy / dt) * 1000 * 0.5;
-            this.isMoving = true;
-            this.isAiming = false;
-            this.touchPositions = [];
-            this.animate();
             e.preventDefault();
+            if (this.touchIdentifier !== null) {
+                const touch = Array.from(e.changedTouches).find(t => t.identifier === this.touchIdentifier);
+                if (touch) {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const endX = touch.clientX - rect.left;
+                    const endY = touch.clientY - rect.top;
+                    this.releaseBallLogic(endX, endY);
+                }
+            }
+            this.touchIdentifier = null;
+            this.isAiming = false;
         }
     }
     startAim(e) {
