@@ -1,5 +1,7 @@
 class EllipticBilliard {
     constructor(canvas) {
+        // Add touch event properties
+        this.touchIdentifier = null;
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.a = 300;
@@ -16,6 +18,16 @@ class EllipticBilliard {
         canvas.addEventListener('mousedown', this.startAim.bind(this));
         canvas.addEventListener('mousemove', this.updateAim.bind(this));
         canvas.addEventListener('mouseup', this.releaseBall.bind(this));
+        // Add touch event listeners
+        canvas.addEventListener('touchstart', this.handleTouchStart.bind(this));
+        canvas.addEventListener('touchmove', this.handleTouchMove.bind(this));
+        canvas.addEventListener('touchend', this.handleTouchEnd.bind(this));
+        canvas.addEventListener('touchcancel', this.handleTouchEnd.bind(this));
+        window.addEventListener('orientationchange', () => {
+            this.canvas.width = window.innerWidth;
+            this.canvas.height = window.innerHeight;
+            this.reset();
+        });
         this.draw();
         this.createTexture();
     }
@@ -52,6 +64,45 @@ class EllipticBilliard {
         // Create repeating pattern
         this.tableTexture = this.ctx.createPattern(textureCanvas, 'repeat');
     }
+    // Touch handlers
+    handleTouchStart(e) {
+        if (!this.isMoving && e.touches.length === 1) {
+            e.preventDefault();
+            this.touchIdentifier = e.touches[0].identifier;
+            const rect = this.canvas.getBoundingClientRect();
+            this.aimStart.x = e.touches[0].clientX - rect.left;
+            this.aimStart.y = e.touches[0].clientY - rect.top;
+            this.isAiming = true;
+        }
+    }
+    handleTouchMove(e) {
+        if (this.isAiming && this.touchIdentifier !== null) {
+            e.preventDefault();
+            const touch = Array.from(e.touches).find(t => t.identifier === this.touchIdentifier);
+            if (touch) {
+                const rect = this.canvas.getBoundingClientRect();
+                const currentX = touch.clientX - rect.left;
+                const currentY = touch.clientY - rect.top;
+                this.updateAimDisplay(currentX, currentY);
+            }
+        }
+    }
+    handleTouchEnd(e) {
+        if (this.isAiming) {
+            e.preventDefault();
+            if (this.touchIdentifier !== null) {
+                const touch = Array.from(e.changedTouches).find(t => t.identifier === this.touchIdentifier);
+                if (touch) {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const endX = touch.clientX - rect.left;
+                    const endY = touch.clientY - rect.top;
+                    this.releaseBallLogic(endX, endY);
+                }
+            }
+            this.touchIdentifier = null;
+            this.isAiming = false;
+        }
+    }
     startAim(e) {
         if (!this.isMoving) {
             this.isAiming = true;
@@ -66,6 +117,7 @@ class EllipticBilliard {
             const rect = this.canvas.getBoundingClientRect();
             const currentX = e.clientX - rect.left;
             const currentY = e.clientY - rect.top;
+            this.updateAimDisplay(currentX, currentY);
             this.ctx.beginPath();
             this.ctx.moveTo(this.ballPos.x, this.ballPos.y);
             this.ctx.lineTo(currentX, currentY);
@@ -74,12 +126,34 @@ class EllipticBilliard {
             this.ctx.stroke();
         }
     }
+    updateAimDisplay(currentX, currentY) {
+        this.draw();
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.ballPos.x, this.ballPos.y);
+        this.ctx.lineTo(currentX, currentY);
+        this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+        this.ctx.lineWidth = 2;
+        this.ctx.stroke();
+    }
+    releaseBallLogic(endX, endY) {
+        const dx = this.aimStart.x - endX;
+        const dy = this.aimStart.y - endY;
+        const distance = Math.hypot(dx, dy);
+        // Mobile-optimized velocity calculation
+        const speed = Math.min(distance * 0.15, 30); // Limit maximum speed
+        const angle = Math.atan2(dy, dx);
+        this.velocity.x = Math.cos(angle) * speed;
+        this.velocity.y = Math.sin(angle) * speed;
+        this.isMoving = true;
+        this.animate();
+    }
     releaseBall(e) {
         if (this.isAiming) {
             this.isAiming = false;
             const rect = this.canvas.getBoundingClientRect();
             const endX = e.clientX - rect.left;
             const endY = e.clientY - rect.top;
+            this.releaseBallLogic(endX, endY);
             this.velocity.x = (this.aimStart.x - endX) * 0.15;
             this.velocity.y = (this.aimStart.y - endY) * 0.15;
             this.isMoving = true;
@@ -236,6 +310,19 @@ class EllipticBilliard {
         this.ctx.fill();
         // Reset shadow
         this.ctx.shadowColor = 'transparent';
+        if (this.isAiming) {
+            this.ctx.beginPath();
+            this.ctx.arc(this.aimStart.x, this.aimStart.y, 15, 0, Math.PI * 2);
+            this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+            this.ctx.fill();
+        }
+        // Draw touch direction indicator
+        if (this.isAiming) {
+            this.ctx.beginPath();
+            this.ctx.arc(this.aimStart.x, this.aimStart.y, 15, 0, Math.PI * 2);
+            this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+            this.ctx.fill();
+        }
     }
 }
 // Initialize the game
