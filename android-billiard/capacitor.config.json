@@ -1,0 +1,15 @@
+{
+  "appId": "io.github.yuri_albuquerque.elliptic_billiard",
+  "appName": "elliptic billiard",
+  "webDir": "web",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": true,
+    "webContentsDebuggingEnabled": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false
+    }
+  }
+}

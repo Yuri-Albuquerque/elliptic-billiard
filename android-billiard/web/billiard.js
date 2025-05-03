@@ -1,8 +1,7 @@
 class EllipticBilliard {
     constructor(canvas) {
         // Add touch event properties
-        // private touchIdentifier: number | null = null;
-        this.touchPositions = [];
+        this.touchIdentifier = null;
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.a = 300;
@@ -29,21 +28,6 @@ class EllipticBilliard {
             this.canvas.height = window.innerHeight;
             this.reset();
         });
-        window.addEventListener('resize', () => {
-            const dpr = window.devicePixelRatio || 1;
-            this.canvas.width = this.canvas.offsetWidth * dpr;
-            this.canvas.height = this.canvas.offsetHeight * dpr;
-            this.ctx.scale(dpr, dpr);
-            // Use logical dimensions for positioning
-            const centerX = this.canvas.offsetWidth / 2;
-            const centerY = this.canvas.offsetHeight / 2;
-            this.ballPos = { x: centerX - this.c, y: centerY };
-            this.holePos = { x: centerX + this.c, y: centerY };
-            this.draw();
-        });
-        // Re-center elements
-        this.ballPos = { x: centerX - this.c, y: centerY };
-        this.holePos = { x: centerX + this.c, y: centerY };
         this.draw();
         this.createTexture();
     }
@@ -83,51 +67,40 @@ class EllipticBilliard {
     // Touch handlers
     handleTouchStart(e) {
         if (!this.isMoving && e.touches.length === 1) {
-            const touch = e.touches[0];
-            const rect = this.canvas.getBoundingClientRect();
-            const scaleX = this.canvas.width / rect.width;
-            const scaleY = this.canvas.height / rect.height;
-            this.touchPositions = [{
-                    x: (touch.clientX - rect.left) * scaleX,
-                    y: (touch.clientY - rect.top) * scaleY,
-                    timestamp: performance.now()
-                }];
-            this.isAiming = true;
             e.preventDefault();
+            this.touchIdentifier = e.touches[0].identifier;
+            const rect = this.canvas.getBoundingClientRect();
+            this.aimStart.x = e.touches[0].clientX - rect.left;
+            this.aimStart.y = e.touches[0].clientY - rect.top;
+            this.isAiming = true;
         }
     }
     handleTouchMove(e) {
-        if (this.isAiming) {
-            const touch = e.touches[0];
-            const rect = this.canvas.getBoundingClientRect();
-            const scaleX = this.canvas.width / rect.width;
-            const scaleY = this.canvas.height / rect.height;
-            this.touchPositions.push({
-                x: (touch.clientX - rect.left) * scaleX,
-                y: (touch.clientY - rect.top) * scaleY,
-                timestamp: performance.now()
-            });
-            // Keep only last 5 positions for velocity calculation
-            if (this.touchPositions.length > 5)
-                this.touchPositions.shift();
-            this.updateAimDisplay(touch.clientX, touch.clientY);
+        if (this.isAiming && this.touchIdentifier !== null) {
             e.preventDefault();
+            const touch = Array.from(e.touches).find(t => t.identifier === this.touchIdentifier);
+            if (touch) {
+                const rect = this.canvas.getBoundingClientRect();
+                const currentX = touch.clientX - rect.left;
+                const currentY = touch.clientY - rect.top;
+                this.updateAimDisplay(currentX, currentY);
+            }
         }
     }
     handleTouchEnd(e) {
         if (this.isAiming) {
-            // Calculate swipe velocity
-            const lastTwo = this.touchPositions.slice(-2);
-            const dx = lastTwo[1].x - lastTwo[0].x;
-            const dy = lastTwo[1].y - lastTwo[0].y;
-            const dt = lastTwo[1].timestamp - lastTwo[0].timestamp;
-            this.velocity.x = (dx / dt) * 1000 * 0.5; // Adjust multiplier
-            this.velocity.y = (dy / dt) * 1000 * 0.5;
-            this.isMoving = true;
-            this.isAiming = false;
-            this.touchPositions = [];
-            this.animate();
             e.preventDefault();
+            if (this.touchIdentifier !== null) {
+                const touch = Array.from(e.changedTouches).find(t => t.identifier === this.touchIdentifier);
+                if (touch) {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const endX = touch.clientX - rect.left;
+                    const endY = touch.clientY - rect.top;
+                    this.releaseBallLogic(endX, endY);
+                }
+            }
+            this.touchIdentifier = null;
+            this.isAiming = false;
         }
     }
     startAim(e) {
@@ -180,7 +153,7 @@ class EllipticBilliard {
             const rect = this.canvas.getBoundingClientRect();
             const endX = e.clientX - rect.left;
             const endY = e.clientY - rect.top;
-            // this.releaseBallLogic(endX, endY);
+            this.releaseBallLogic(endX, endY);
             this.velocity.x = (this.aimStart.x - endX) * 0.15;
             this.velocity.y = (this.aimStart.y - endY) * 0.15;
             this.isMoving = true;
@@ -190,10 +163,8 @@ class EllipticBilliard {
     animate() {
         if (!this.isMoving)
             return;
-        // Update position
         this.ballPos.x += this.velocity.x;
         this.ballPos.y += this.velocity.y;
-        // Check collisions
         if (this.isOutsideEllipse(this.ballPos.x, this.ballPos.y)) {
             this.handleCollision();
         }
@@ -201,12 +172,9 @@ class EllipticBilliard {
             this.reset();
             return;
         }
-        // Apply friction only when below speed threshold
-        const speed = Math.hypot(this.velocity.x, this.velocity.y);
-        if (speed > 0.099) {
-            this.velocity.x *= 0.99;
-            this.velocity.y *= 0.99;
-        }
+        // Apply minimal friction only when moving
+        this.velocity.x *= 0.99;
+        this.velocity.y *= 0.99;
         // Update position
         this.ballPos.x += this.velocity.x;
         this.ballPos.y += this.velocity.y;
@@ -221,14 +189,14 @@ class EllipticBilliard {
         requestAnimationFrame(this.animate.bind(this));
     }
     isOutsideEllipse(x, y) {
-        const centerX = this.canvas.offsetWidth / 2;
-        const centerY = this.canvas.offsetHeight / 2;
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
         return (Math.pow((x - centerX), 2)) / Math.pow(this.a, 2) + (Math.pow((y - centerY), 2)) / Math.pow(this.b, 2) > 1;
     }
     handleCollision() {
         // ### third method
-        const centerX = this.canvas.offsetWidth / 2;
-        const centerY = this.canvas.offsetHeight / 2;
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
         // Convert to ellipse-centered coordinates
         const prevX = this.ballPos.x - this.velocity.x - centerX;
         const prevY = this.ballPos.y - this.velocity.y - centerY;
@@ -277,49 +245,44 @@ class EllipticBilliard {
         return false;
     }
     reset() {
-        const centerX = this.canvas.offsetWidth / 2;
-        const centerY = this.canvas.offsetHeight / 2;
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
         this.ballPos = { x: centerX - this.c, y: centerY };
         this.velocity = { x: 0, y: 0 };
         this.isMoving = false;
         this.draw();
     }
     draw() {
-        // Get logical dimensions based on CSS size
-        const logicalWidth = this.canvas.offsetWidth;
-        const logicalHeight = this.canvas.offsetHeight;
-        // Clear and fill background using logical dimensions
-        this.ctx.clearRect(0, 0, logicalWidth, logicalHeight);
-        this.ctx.fillStyle = '#654321';
-        this.ctx.fillRect(0, 0, logicalWidth, logicalHeight);
-        const centerX = logicalWidth / 2;
-        const centerY = logicalHeight / 2;
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        // Draw wooden table background
+        this.ctx.fillStyle = '#654321'; // Dark wood color
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         // Draw velvet playing surface
         this.ctx.save();
         this.ctx.beginPath();
-        this.ctx.ellipse(centerX, centerY, this.a, this.b, 0, 0, Math.PI * 2);
+        this.ctx.ellipse(this.canvas.width / 2, this.canvas.height / 2, this.a, this.b, 0, 0, Math.PI * 2);
         this.ctx.clip();
         this.ctx.fillStyle = this.tableTexture;
-        this.ctx.fillRect(0, 0, logicalWidth, logicalHeight);
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.restore();
         // Draw table border
         this.ctx.beginPath();
-        this.ctx.ellipse(centerX, centerY, this.a + 4, this.b + 4, 0, 0, Math.PI * 2);
+        this.ctx.ellipse(this.canvas.width / 2, this.canvas.height / 2, this.a + 4, this.b + 4, 0, 0, Math.PI * 2);
         this.ctx.strokeStyle = '#372813'; // Dark wood edge
         this.ctx.lineWidth = 8;
         this.ctx.stroke();
         // Add specular highlights
-        const gradient = this.ctx.createRadialGradient(centerX - 50, centerY - 30, 0, centerX - 50, centerY - 30, 300);
+        const gradient = this.ctx.createRadialGradient(this.canvas.width / 2 - 50, this.canvas.height / 2 - 30, 0, this.canvas.width / 2 - 50, this.canvas.height / 2 - 30, 300);
         gradient.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
         gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
         this.ctx.fillStyle = gradient;
-        this.ctx.fillRect(0, 0, logicalWidth, logicalHeight);
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         // Add felt nap direction
         this.ctx.beginPath();
         for (let y = -this.b; y < this.b; y += 15) {
             const x = Math.sqrt((1 - (Math.pow(y, 2)) / (Math.pow(this.b, 2))) * Math.pow(this.a, 2));
-            this.ctx.moveTo(centerX - x, centerY + y);
-            this.ctx.lineTo(centerX + x, centerY + y);
+            this.ctx.moveTo(this.canvas.width / 2 - x, this.canvas.height / 2 + y);
+            this.ctx.lineTo(this.canvas.width / 2 + x, this.canvas.height / 2 + y);
         }
         this.ctx.strokeStyle = 'rgba(40, 70, 40, 0.15)';
         this.ctx.lineWidth = 1.5;
@@ -359,14 +322,6 @@ class EllipticBilliard {
             this.ctx.arc(this.aimStart.x, this.aimStart.y, 15, 0, Math.PI * 2);
             this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
             this.ctx.fill();
-        }
-        if (this.isAiming && this.touchPositions.length > 0) {
-            this.ctx.fillStyle = 'rgba(255,0,0,0.5)';
-            this.touchPositions.forEach(pos => {
-                this.ctx.beginPath();
-                this.ctx.arc(pos.x, pos.y, 5, 0, Math.PI * 2);
-                this.ctx.fill();
-            });
         }
     }
 }
