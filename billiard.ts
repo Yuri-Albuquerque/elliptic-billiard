@@ -19,15 +19,17 @@ class EllipticBilliard {
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         // Set CSS dimensions first
-        canvas.style.width = '100%';
-        canvas.style.height = '100vh';
-        
+        canvas.style.width = '70%';
+        canvas.style.height = '70vh';
+        canvas.style.margin = '0 auto';  // Center horizontally
+        canvas.style.display = 'block';  // Remove default inline spacing
+
         // Get device pixel ratio
         const dpr = window.devicePixelRatio || 1;
         
         // Set physical dimensions based on device specs
-        canvas.width = 800 * dpr;  // Width in portrait
-        canvas.height = 500 * dpr; // Height in portrait
+        canvas.width = canvas.offsetWidth * dpr;  // Width in portrait
+        canvas.height = canvas.offsetHeight * dpr; // Height in portrait
         
         // Adjust for landscape orientation
         if (window.matchMedia("(orientation: landscape)").matches) {
@@ -79,12 +81,21 @@ class EllipticBilliard {
             
             this.reset();
         });
-
+       
         window.addEventListener('resize', () => {
             const dpr = window.devicePixelRatio || 1;
             this.canvas.width = this.canvas.offsetWidth * dpr;
             this.canvas.height = this.canvas.offsetHeight * dpr;
             this.ctx.scale(dpr, dpr);
+
+            // Recalculate game elements
+            const viewportWidth = this.canvas.offsetWidth;
+            const viewportHeight = this.canvas.offsetHeight;
+            this.a = Math.min(viewportWidth, viewportHeight) * 0.4;
+            this.c = this.a * 0.666;
+            this.b = Math.sqrt(this.a ** 2 - this.c ** 2);
+            
+            this.reset();
             
             // Use logical dimensions for positioning
             const centerX = this.canvas.offsetWidth / 2;
@@ -161,10 +172,11 @@ class EllipticBilliard {
 
     private handleTouchMove(e: TouchEvent) {
         if (this.isAiming) {
+            const ppiScale = 440 / 160; // 160 = baseline PPI
             const touch = e.touches[0];
             const rect = this.canvas.getBoundingClientRect();
-            const scaleX = this.canvas.width / rect.width;
-            const scaleY = this.canvas.height / rect.height;
+            const scaleX = (this.canvas.width / rect.width) * ppiScale;
+            const scaleY = (this.canvas.height / rect.height) * ppiScale;
             
             this.touchPositions.push({
                 x: (touch.clientX - rect.left) * scaleX,

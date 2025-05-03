@@ -11,6 +11,8 @@ canvas {
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
+    border: 2px solid #333;
+    box-sizing: border-box;  
 }
 
 @media (device-width: 1080px) and (device-height: 2460px) {
