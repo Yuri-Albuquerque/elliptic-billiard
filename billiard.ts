@@ -485,6 +485,6 @@ class EllipticBilliard {
 
 // Initialize the game
 const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
-canvas.width = 800;
-canvas.height = 500;
+canvas.width = 2460;
+canvas.height = 1080;
 new EllipticBilliard(canvas);
