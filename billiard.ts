@@ -26,8 +26,8 @@ class EllipticBilliard {
         const dpr = window.devicePixelRatio || 1;
         
         // Set physical dimensions based on device specs
-        canvas.width = 1080 * dpr;  // Width in portrait
-        canvas.height = 2460 * dpr; // Height in portrait
+        canvas.width = 800 * dpr;  // Width in portrait
+        canvas.height = 500 * dpr; // Height in portrait
         
         // Adjust for landscape orientation
         if (window.matchMedia("(orientation: landscape)").matches) {
@@ -506,6 +506,6 @@ class EllipticBilliard {
 
 // Initialize the game
 const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
-canvas.width = 2460;
-canvas.height = 1080;
+canvas.width = 800;
+canvas.height = 500;
 new EllipticBilliard(canvas);
