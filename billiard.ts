@@ -19,8 +19,8 @@ class EllipticBilliard {
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         // Set CSS dimensions first
-        // canvas.style.width = '100%';
-        // canvas.style.height = '100vh';
+        canvas.style.width = '100%';
+        canvas.style.height = '100vh';
         
         // Get device pixel ratio
         const dpr = window.devicePixelRatio || 1;
@@ -66,8 +66,17 @@ class EllipticBilliard {
         canvas.addEventListener('touchcancel', this.handleTouchEnd.bind(this));
         
         window.addEventListener('orientationchange', () => {
-            this.canvas.width = window.innerWidth;
-            this.canvas.height = window.innerHeight;
+            const dpr = window.devicePixelRatio || 1;
+            [this.canvas.width, this.canvas.height] = [this.canvas.height, this.canvas.width];
+            this.ctx.scale(dpr, dpr);
+            
+            // Recalculate game dimensions
+            const viewportWidth = this.canvas.offsetWidth;
+            const viewportHeight = this.canvas.offsetHeight;
+            this.a = Math.min(viewportWidth, viewportHeight) * 0.4;
+            this.c = this.a * 0.666;
+            this.b = Math.sqrt(this.a ** 2 - this.c ** 2);
+            
             this.reset();
         });
 
