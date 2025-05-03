@@ -4,79 +4,103 @@ class EllipticBilliard {
         this.touchIdentifier = null;
         this.touchPositions = [];
         this.canvas = canvas;
-        // // Set CSS dimensions first
-        // canvas.style.width = '100%';
-        // canvas.style.height = '100vh';
         canvas.style.margin = '0 auto'; // Center horizontally
         canvas.style.display = 'block'; // Remove default inline spacing
-        // Get device pixel ratio
-        const dpr = window.devicePixelRatio || 1;
-        // Set physical dimensions based on device specs
-        canvas.width = canvas.offsetWidth * dpr; // Width in portrait
-        canvas.height = canvas.offsetHeight * dpr; // Height in portrait
-        // Adjust for landscape orientation
-        if (window.matchMedia("(orientation: landscape)").matches) {
-            [canvas.width, canvas.height] = [canvas.height, canvas.width];
-        }
-        // Scale context for sharp rendering
-        this.ctx = canvas.getContext('2d');
-        this.ctx.scale(dpr, dpr);
-        // Update ellipse parameters relative to screen size
-        const viewportWidth = canvas.offsetWidth;
-        const viewportHeight = canvas.offsetHeight;
-        this.a = Math.min(viewportWidth, viewportHeight) * 0.4; // 40% of smaller dimension
-        this.c = this.a * 0.666; // Maintain focal distance ratio
-        this.b = Math.sqrt(Math.pow(this.a, 2) - Math.pow(this.c, 2));
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-        this.ballPos = { x: centerX - this.c, y: centerY };
-        this.holePos = { x: centerX + this.c, y: centerY };
+        // Initialize dimensions and scaling
+        const updateDimensions = () => {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            // Set physical dimensions
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            // Scale context
+            this.ctx = canvas.getContext('2d');
+            this.ctx.scale(dpr, dpr);
+            // Calculate game parameters
+            const viewportWidth = rect.width;
+            const viewportHeight = rect.height;
+            this.a = Math.min(viewportWidth, viewportHeight) * 0.4;
+            this.c = this.a * 0.666;
+            this.b = Math.sqrt(Math.pow(this.a, 2) - Math.pow(this.c, 2));
+            // Calculate center positions
+            const centerX = viewportWidth / 2;
+            const centerY = viewportHeight / 2;
+            this.ballPos = { x: centerX - this.c, y: centerY };
+            this.holePos = { x: centerX + this.c, y: centerY };
+        };
+        // Initial setup
+        updateDimensions();
+        // Event listeners with proper coordinate handling
+        const getScaledCoordinates = (clientX, clientY) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const scaleX = this.canvas.width / rect.width;
+            const scaleY = this.canvas.height / rect.height;
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        };
         this.velocity = { x: 0, y: 0 };
         this.isMoving = false;
         this.isAiming = false;
         this.aimStart = { x: 0, y: 0 };
-        canvas.addEventListener('mousedown', this.startAim.bind(this));
-        canvas.addEventListener('mousemove', this.updateAim.bind(this));
-        canvas.addEventListener('mouseup', this.releaseBall.bind(this));
-        // Add touch event listeners
-        canvas.addEventListener('touchstart', this.handleTouchStart.bind(this));
-        canvas.addEventListener('touchmove', this.handleTouchMove.bind(this));
-        canvas.addEventListener('touchend', this.handleTouchEnd.bind(this));
-        canvas.addEventListener('touchcancel', this.handleTouchEnd.bind(this));
-        window.addEventListener('orientationchange', () => {
-            const dpr = window.devicePixelRatio || 1;
-            [this.canvas.width, this.canvas.height] = [this.canvas.height, this.canvas.width];
-            this.ctx.scale(dpr, dpr);
-            // Recalculate game dimensions
-            const viewportWidth = this.canvas.offsetWidth;
-            const viewportHeight = this.canvas.offsetHeight;
-            this.a = Math.min(viewportWidth, viewportHeight) * 0.4;
-            this.c = this.a * 0.666;
-            this.b = Math.sqrt(Math.pow(this.a, 2) - Math.pow(this.c, 2));
-            this.reset();
+        // Mouse handlers
+        canvas.addEventListener('mousedown', (e) => {
+            if (!this.isMoving) {
+                const pos = getScaledCoordinates(e.clientX, e.clientY);
+                this.aimStart = pos;
+                this.isAiming = true;
+            }
         });
-        window.addEventListener('resize', () => {
-            const dpr = window.devicePixelRatio || 1;
-            this.canvas.width = this.canvas.offsetWidth * dpr;
-            this.canvas.height = this.canvas.offsetHeight * dpr;
-            this.ctx.scale(dpr, dpr);
-            // Recalculate game elements
-            const viewportWidth = this.canvas.offsetWidth;
-            const viewportHeight = this.canvas.offsetHeight;
-            this.a = Math.min(viewportWidth, viewportHeight) * 0.4;
-            this.c = this.a * 0.666;
-            this.b = Math.sqrt(Math.pow(this.a, 2) - Math.pow(this.c, 2));
-            this.reset();
-            // Use logical dimensions for positioning
-            const centerX = this.canvas.offsetWidth / 2;
-            const centerY = this.canvas.offsetHeight / 2;
-            this.ballPos = { x: centerX - this.c, y: centerY };
-            this.holePos = { x: centerX + this.c, y: centerY };
+        canvas.addEventListener('mousemove', (e) => {
+            if (this.isAiming) {
+                const pos = getScaledCoordinates(e.clientX, e.clientY);
+                this.updateAimDisplay(pos.x, pos.y);
+            }
+        });
+        canvas.addEventListener('mouseup', (e) => {
+            if (this.isAiming) {
+                const pos = getScaledCoordinates(e.clientX, e.clientY);
+                this.releaseBallLogic(pos.x, pos.y);
+                this.isAiming = false;
+            }
+        });
+        // Touch handlers
+        canvas.addEventListener('touchstart', (e) => {
+            if (!this.isMoving && e.touches.length === 1) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const pos = getScaledCoordinates(touch.clientX, touch.clientY);
+                this.aimStart = pos;
+                this.isAiming = true;
+            }
+        });
+        canvas.addEventListener('touchmove', (e) => {
+            if (this.isAiming && e.touches.length === 1) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const pos = getScaledCoordinates(touch.clientX, touch.clientY);
+                this.updateAimDisplay(pos.x, pos.y);
+            }
+        });
+        canvas.addEventListener('touchend', (e) => {
+            if (this.isAiming) {
+                e.preventDefault();
+                if (e.changedTouches.length === 1) {
+                    const touch = e.changedTouches[0];
+                    const pos = getScaledCoordinates(touch.clientX, touch.clientY);
+                    this.releaseBallLogic(pos.x, pos.y);
+                }
+                this.isAiming = false;
+            }
+        });
+        // Window resize/orientation handlers
+        const resizeHandler = () => {
+            updateDimensions();
             this.draw();
-        });
-        // Re-center elements
-        this.ballPos = { x: centerX - this.c, y: centerY };
-        this.holePos = { x: centerX + this.c, y: centerY };
+        };
+        window.addEventListener('resize', resizeHandler);
+        window.addEventListener('orientationchange', resizeHandler);
         this.draw();
         this.createTexture();
     }
@@ -188,8 +212,7 @@ class EllipticBilliard {
         const dx = this.aimStart.x - endX;
         const dy = this.aimStart.y - endY;
         const distance = Math.hypot(dx, dy);
-        // Mobile-optimized velocity calculation
-        const speed = Math.min(distance * 0.15, 30); // Limit maximum speed
+        const speed = Math.min(distance * 0.15, 30);
         const angle = Math.atan2(dy, dx);
         this.velocity.x = Math.cos(angle) * speed;
         this.velocity.y = Math.sin(angle) * speed;
@@ -225,22 +248,27 @@ class EllipticBilliard {
         }
         // Apply friction only when below speed threshold
         const speed = Math.hypot(this.velocity.x, this.velocity.y);
-        if (speed > 0.099) {
+        if (speed > 0.1) {
             this.velocity.x *= 0.99;
             this.velocity.y *= 0.99;
         }
-        // Update position
-        this.ballPos.x += this.velocity.x;
-        this.ballPos.y += this.velocity.y;
-        // Check collisions
-        if (this.isOutsideEllipse(this.ballPos.x, this.ballPos.y)) {
-            this.handleCollision();
-        }
-        if (Math.hypot(this.velocity.x, this.velocity.y) < 0.1) {
+        else {
             this.isMoving = false;
         }
         this.draw();
         requestAnimationFrame(this.animate.bind(this));
+        //   // Update position
+        // this.ballPos.x += this.velocity.x;
+        // this.ballPos.y += this.velocity.y;
+        // Check collisions
+        // if (this.isOutsideEllipse(this.ballPos.x, this.ballPos.y)) {
+        //     this.handleCollision();
+        // }
+        // if (Math.hypot(this.velocity.x, this.velocity.y) < 0.1) {
+        //     this.isMoving = false;
+        // }
+        // this.draw();
+        // requestAnimationFrame(this.animate.bind(this));
     }
     isOutsideEllipse(x, y) {
         const centerX = this.canvas.offsetWidth / 2;
@@ -392,8 +420,8 @@ class EllipticBilliard {
         }
     }
 }
-// Initialize the game
+// Initialize with proper canvas dimensions
 const canvas = document.getElementById('gameCanvas');
-canvas.width = 800;
-canvas.height = 500;
+canvas.style.width = '100%';
+canvas.style.height = '100vh';
 new EllipticBilliard(canvas);
