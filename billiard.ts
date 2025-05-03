@@ -19,8 +19,8 @@ class EllipticBilliard {
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         // Set CSS dimensions first
-        canvas.style.width = '70%';
-        canvas.style.height = '70vh';
+        canvas.style.width = '100%';
+        canvas.style.height = '100vh';
         canvas.style.margin = '0 auto';  // Center horizontally
         canvas.style.display = 'block';  // Remove default inline spacing
 
@@ -154,10 +154,10 @@ class EllipticBilliard {
     // Touch handlers
     private handleTouchStart(e: TouchEvent) {
         if (!this.isMoving && e.touches.length === 1) {
-            const touch = e.touches[0];
             const rect = this.canvas.getBoundingClientRect();
             const scaleX = this.canvas.width / rect.width;
             const scaleY = this.canvas.height / rect.height;
+            const touch = e.touches[0];
             
             this.touchPositions = [{
                 x: (touch.clientX - rect.left) * scaleX,

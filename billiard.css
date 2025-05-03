@@ -15,9 +15,3 @@ canvas {
     box-sizing: border-box;  
 }
 
-@media (device-width: 1080px) and (device-height: 2460px) {
-    canvas {
-        border-radius: 25px; /* Match device bezel */
-        overflow: hidden;
-    }
-}
