@@ -19,8 +19,8 @@ class EllipticBilliard {
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         // Set CSS dimensions first
-        canvas.style.width = '100%';
-        canvas.style.height = '100vh';
+        // canvas.style.width = '100%';
+        // canvas.style.height = '100vh';
         
         // Get device pixel ratio
         const dpr = window.devicePixelRatio || 1;
