@@ -18,12 +18,33 @@ class EllipticBilliard {
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
+        // Set CSS dimensions first
+        canvas.style.width = '100%';
+        canvas.style.height = '100vh';
         
+        // Get device pixel ratio
+        const dpr = window.devicePixelRatio || 1;
+        
+        // Set physical dimensions based on device specs
+        canvas.width = 1080 * dpr;  // Width in portrait
+        canvas.height = 2460 * dpr; // Height in portrait
+        
+        // Adjust for landscape orientation
+        if (window.matchMedia("(orientation: landscape)").matches) {
+            [canvas.width, canvas.height] = [canvas.height, canvas.width];
+        }
 
+        // Scale context for sharp rendering
         this.ctx = canvas.getContext('2d')!;
-        this.a = 300;
-        this.c = 200;
+        this.ctx.scale(dpr, dpr);
+
+        // Update ellipse parameters relative to screen size
+        const viewportWidth = canvas.offsetWidth;
+        const viewportHeight = canvas.offsetHeight;
+        this.a = Math.min(viewportWidth, viewportHeight) * 0.4;  // 40% of smaller dimension
+        this.c = this.a * 0.666;  // Maintain focal distance ratio
         this.b = Math.sqrt(this.a ** 2 - this.c ** 2);
+
         
         const centerX = canvas.width / 2;
         const centerY = canvas.height / 2;
